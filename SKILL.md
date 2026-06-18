@@ -8,7 +8,7 @@ outputs: [report, analysis]
 scenarios: [code-review, technical-audit]
 runtimes: [chat]
 platforms: [claude-code, cursor, windsurf, codex]
-tags: [architecture, codebase-audit, due-diligence, hackathon]
+tags: [architecture, codebase-audit, due-diligence]
 version: 1.0.0
 author: Helia
 ---
