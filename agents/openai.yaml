@@ -1,0 +1,4 @@
+interface:
+  display_name: "Architecture Due Diligence"
+  short_description: "Audit codebase health and architecture risk"
+  default_prompt: "Use $architecture-due-diligence to assess this codebase's technical health and recommend a fix sequence."
