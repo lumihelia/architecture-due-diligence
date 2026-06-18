@@ -7,7 +7,7 @@ roles: [engineer, founder, lead]
 outputs: [report, analysis]
 scenarios: [code-review, technical-audit]
 runtimes: [chat]
-platforms: [claude-code, cursor, windsurf]
+platforms: [claude-code, cursor, windsurf, codex]
 tags: [architecture, codebase-audit, due-diligence, hackathon]
 version: 1.0.0
 author: Helia
