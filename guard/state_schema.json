@@ -1,0 +1,43 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Runtime Guard local state",
+  "description": "Stored at .architecture-due-diligence/runtime_guard_state.json inside the target repo. One file per repo; not designed for concurrent sessions auditing the same repo at the same time.",
+  "type": "object",
+  "properties": {
+    "mode": {
+      "type": "string",
+      "enum": ["audit_read_only", "remediation", "feature_build", "unknown"],
+      "description": "Set explicitly via `python3 scripts/runtime_guard.py set-mode <mode>`. Never inferred automatically -- inference from prompt text only produces a reminder, never a mode change."
+    },
+    "changed_files": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "File paths touched by Write/Edit/MultiEdit/NotebookEdit since the mode was last set."
+    },
+    "risky_actions": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "category:path entries recorded when a changed file matched a reminder category (auth, dependencies, deployment, migrations)."
+    },
+    "verification_commands": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Bash commands observed that matched guard/rules.json verification_command_markers."
+    },
+    "stop_block_count": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "How many times the Stop hook has already blocked completion this mode-session. Capped by stop_block_limit in rules.json so the guard can never hang the session."
+    },
+    "last_prompt_summary": {
+      "type": "string",
+      "description": "First 200 chars of the most recent user prompt, kept for debugging only."
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 UTC timestamp of the last state write."
+    }
+  },
+  "required": ["mode", "changed_files", "risky_actions", "verification_commands", "stop_block_count", "updated_at"]
+}

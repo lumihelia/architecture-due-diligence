@@ -110,6 +110,12 @@ Or with a specific depth:
 Use Architecture Due Diligence for a quick scan of this repo
 ```
 
+## Optional: Runtime Guard for Claude Code
+
+The skill itself works in any agent because it is just instructions. If you run it in Claude Code specifically, you can optionally wire up `scripts/runtime_guard.py` via hooks to enforce part of the "Read-Only Default" rule at execution time instead of relying only on the agent following it: file-writing tools get blocked outright while auditing, and risky edits get surfaced before they happen during remediation. Mode is set explicitly (`set-mode audit_read_only` / `set-mode remediation`), never guessed from prompt text, so it never reaches outside an actual audit/remediation session.
+
+See [docs/runtime-guard.md](./docs/runtime-guard.md) for setup, what it does and does not protect against, and how to disable it.
+
 ## About
 
 This skill was built around one constraint: every judgment must be traceable to evidence. The depth ladder, the inventory script, and the fix sequence rules all exist to prevent confident-sounding architectural opinions that cannot be verified — a common failure mode of code review agents.

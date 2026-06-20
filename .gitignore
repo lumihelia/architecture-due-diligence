@@ -1,2 +1,5 @@
 .DS_Store
 architecture-due-diligence.skill
+__pycache__/
+*.pyc
+.architecture-due-diligence/

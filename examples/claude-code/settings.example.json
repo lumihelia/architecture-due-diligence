@@ -1,0 +1,48 @@
+{
+  "//": "Example Claude Code hooks wiring for the Architecture Due Diligence Runtime Guard. Copy the 'hooks' block into your project's .claude/settings.json (merge with any hooks you already have -- do not just overwrite the file). Commands are relative to your project root; adjust the path if this skill lives elsewhere.",
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 scripts/runtime_guard.py user-prompt-submit"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 scripts/runtime_guard.py pre-tool-use"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 scripts/runtime_guard.py post-tool-use"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 scripts/runtime_guard.py stop"
+          }
+        ]
+      }
+    ]
+  }
+}

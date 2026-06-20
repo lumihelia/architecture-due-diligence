@@ -1,0 +1,115 @@
+{
+  "version": "0.1.0",
+  "state_dir": ".architecture-due-diligence",
+  "stop_block_limit": 1,
+  "modes": {
+    "audit_read_only": {
+      "deny_tools": ["Write", "Edit", "MultiEdit", "NotebookEdit"],
+      "deny_bash_patterns": [
+        "npm install",
+        "npm i ",
+        "pnpm add",
+        "yarn add",
+        "pip install",
+        "pip3 install",
+        "poetry add",
+        "uv add",
+        "rm -rf",
+        "rm -r ",
+        "git reset --hard",
+        "git push",
+        "git checkout -- ",
+        "git clean -f",
+        "prisma migrate",
+        "alembic upgrade",
+        "drizzle-kit push",
+        "curl -o",
+        "curl --output",
+        "wget "
+      ]
+    },
+    "remediation": {
+      "risky_paths": [
+        "package.json",
+        "package-lock.json",
+        "pnpm-lock.yaml",
+        "yarn.lock",
+        ".env",
+        ".env.example",
+        ".env.sample",
+        "Dockerfile",
+        "docker-compose.yml",
+        "compose.yml",
+        "vercel.json",
+        "netlify.toml",
+        ".github/workflows/",
+        "migrations/",
+        "schema/",
+        "prisma/",
+        "drizzle/",
+        "auth/",
+        "src/auth/",
+        "lib/auth/"
+      ],
+      "risky_bash_patterns": [
+        "npm install",
+        "pnpm add",
+        "yarn add",
+        "pip install",
+        "pip3 install",
+        "poetry add",
+        "rm -rf",
+        "git reset --hard",
+        "git push",
+        "prisma migrate",
+        "alembic upgrade",
+        "drizzle-kit push"
+      ]
+    }
+  },
+  "verification_command_markers": [
+    "npm run lint",
+    "npm run typecheck",
+    "npm test",
+    "npm run build",
+    "pnpm lint",
+    "pnpm typecheck",
+    "pnpm test",
+    "pnpm build",
+    "yarn lint",
+    "yarn test",
+    "python3 -m pytest",
+    "pytest",
+    "python3 -m compileall"
+  ],
+  "reminder_categories": {
+    "auth": {
+      "paths": ["auth/", "src/auth/", "lib/auth/"],
+      "message": "Auth-related file changed. Verify authorization boundaries, token handling, error paths, and that nothing sensitive is logged."
+    },
+    "dependencies": {
+      "paths": ["package.json", "requirements.txt", "pyproject.toml", "go.mod", "Cargo.toml"],
+      "message": "Dependency manifest changed. Confirm the new dependency is necessary and that verification commands still cover it."
+    },
+    "deployment": {
+      "paths": ["Dockerfile", "docker-compose.yml", "vercel.json", "netlify.toml", ".github/workflows/"],
+      "message": "Deployment/CI config changed. Verify build, startup, and deploy behavior before considering this done."
+    },
+    "migrations": {
+      "paths": ["migrations/", "schema/", "prisma/", "drizzle/"],
+      "message": "Schema/migration surface changed. Verify the migration is reversible and does not risk data loss."
+    }
+  },
+  "mode_hint_keywords": {
+    "audit_read_only": [
+      "audit", "due diligence", "architecture assessment", "risk assessment",
+      "review this repo", "review the architecture", "scan the codebase",
+      "审计", "评估", "架构评估", "看看这个repo", "看看这个仓库"
+    ],
+    "remediation": [
+      "fix the findings", "implement the recommendations", "remediate",
+      "apply the fixes", "fix the issues from the audit",
+      "整改", "修复审计", "按审计结果修复"
+    ]
+  }
+}

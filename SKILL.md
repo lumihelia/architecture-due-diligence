@@ -38,6 +38,13 @@ Treat this skill as read-only by default. Do not modify files, install dependenc
 
 The default deliverable is judgment, evidence, risk order, and next actions. If remediation is requested after the audit, treat it as a separate implementation task with its own verification loop.
 
+If `scripts/runtime_guard.py` exists in this skill directory and is wired into Claude Code hooks (see `docs/runtime-guard.md`), set the mode explicitly so enforcement matches intent — this is optional and does not change the rules above:
+
+```bash
+python3 scripts/runtime_guard.py set-mode audit_read_only   # before auditing
+python3 scripts/runtime_guard.py set-mode remediation       # only after the user explicitly asks for fixes
+```
+
 ## Review Stance
 
 Adopt the perspective of a senior technical owner deciding what should happen next, not a reviewer collecting small style issues.
