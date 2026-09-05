@@ -1,361 +1,365 @@
 ---
 name: architecture-due-diligence
-displayName: Architecture Due Diligence
-description: Technical due diligence for codebases — assess architecture health, identify the highest-leverage structural risks, and produce an ordered fix sequence with verification gates.
-categories: [engineering, research]
-roles: [engineer, founder, lead]
-outputs: [report, analysis]
-scenarios: [code-review, technical-audit]
-runtimes: [chat]
-platforms: [claude-code, cursor, windsurf, codex]
-tags: [architecture, codebase-audit, due-diligence]
-version: 1.0.0
-author: Helia
+description: Assess project-level codebase health, architecture quality, maintainability, reliability, security posture, technical debt, operability, and technical ceiling. Use for architecture review, technical audit, pre-refactor or pre-investment assessment, stage-transition readiness, or when deciding whether a codebase is safe to keep building on. Not for routine line-by-line PR review or product-direction judgment.
+license: MIT
+compatibility: Requires repository/file inspection and command execution for meaningful verification. Browser access is useful for frontend/runtime checks. The optional Runtime Guard requires Claude Code hooks.
+metadata:
+  author: Helia
+  version: "1.1.0"
 ---
 
 # Architecture Due Diligence
 
 ## Purpose
 
-Assess whether a codebase is technically healthy enough to continue building on, identify the highest-leverage structural risks, and recommend a small, ordered fix sequence with verification gates.
+Assess whether a codebase is technically healthy enough to continue building on, identify the highest-leverage structural risks, and recommend a small ordered fix sequence with verification gates.
 
-This is not a normal code review. Focus on system health: architecture boundaries, data flow, operability, reliability, security posture, testability, complexity, and product-stage fit.
+This is a system-health review. Focus on architecture boundaries, critical paths, data flow, operability, reliability, security/privacy, testability, complexity, AI integration, and product-stage fit.
 
-## Core Rule
+## Scope boundary
 
-Do not make senior-sounding claims without evidence. Every important judgment must be grounded in at least one of:
+Keep three review types distinct:
 
-- File paths, functions, modules, configuration, or dependency manifests.
-- Command output from tests, builds, type checks, linters, or smoke tests.
-- Observed runtime behavior, console output, logs, screenshots, or API responses.
-- Explicit absence of expected structure, such as no tests, no setup path, no env example, or no error boundary.
+- **Architecture due diligence:** Is the current codebase safe to keep building on?
+- **Product-direction review:** Should the product still be built this way at all?
+- **Routine code review:** Is this specific diff or implementation correct?
 
-If evidence is incomplete, say what is unknown and how to verify it.
+This skill owns the first question. If host/project instructions provide dedicated product-shaping, UI-review, security, or code-review workflows, route those judgments to the appropriate layer instead of duplicating them here.
 
-## Read-Only Default
+## Core rule: evidence before judgment
 
-Treat this skill as read-only by default. Do not modify files, install dependencies, rewrite architecture, create migrations, change configuration, or remediate findings unless the user explicitly asks for implementation.
+Every load-bearing claim must be grounded in at least one of:
 
-The default deliverable is judgment, evidence, risk order, and next actions. If remediation is requested after the audit, treat it as a separate implementation task with its own verification loop.
+- file paths, functions, modules, configuration, manifests, or schemas;
+- command output from tests, builds, type checks, linters, dependency checks, or smoke tests;
+- observed runtime behavior, console output, logs, screenshots, API responses, or deployment output;
+- explicit absence of expected structure, such as no tests, no setup path, no env example, or no error boundary.
 
-If `scripts/runtime_guard.py` exists in this skill directory and is wired into Claude Code hooks (see `docs/runtime-guard.md`), set the mode explicitly so enforcement matches intent — this is optional and does not change the rules above:
+If evidence is incomplete, mark the claim unknown and state how to verify it. Do not convert an unrun check into a passed check.
+
+## Read-only default
+
+Audit mode is read-only.
+
+Do not modify files, install dependencies, create migrations, change configuration, rewrite architecture, or remediate findings unless the user explicitly asks for implementation after the audit.
+
+The default deliverable is judgment, evidence, risk order, and next actions. Remediation is a separate implementation task with its own verification loop.
+
+### Optional Claude Code Runtime Guard
+
+If this skill directory contains `scripts/runtime_guard.py` and the host is Claude Code with hooks configured, the guard can enforce part of the read-only boundary at runtime.
+
+Set mode explicitly:
 
 ```bash
-python3 scripts/runtime_guard.py set-mode audit_read_only   # before auditing
-python3 scripts/runtime_guard.py set-mode remediation       # only after the user explicitly asks for fixes
+python3 scripts/runtime_guard.py set-mode audit_read_only
+python3 scripts/runtime_guard.py set-mode remediation
+python3 scripts/runtime_guard.py set-mode feature_build
 ```
 
-## Review Stance
+The guard is optional. It is not a sandbox and must not replace audit judgment, permissions, or verification. Read `docs/runtime-guard.md` before relying on it.
 
-Adopt the perspective of a senior technical owner deciding what should happen next, not a reviewer collecting small style issues.
+## Review stance
+
+Act like a senior technical owner deciding what should happen next.
 
 Prioritize:
 
-- Structural problems that will compound.
-- Risks that block product evolution, reliability, security, or maintainability.
-- Misalignment between technical complexity and project stage.
-- Missing verification surfaces for critical behavior.
-- Fixes that reduce future ambiguity.
+- structural problems that compound;
+- risks blocking reliability, security, maintainability, operability, or product evolution;
+- mismatch between technical complexity and project stage;
+- unverified critical paths;
+- unclear ownership of core logic or state;
+- fixes that reduce future ambiguity.
 
 Deprioritize:
 
-- Cosmetic code style unless it signals systemic inconsistency.
-- Small local bugs unless they reveal a repeated architectural failure.
-- Refactors that are elegant but not tied to risk reduction.
-- Generic best practices that do not fit the project.
+- cosmetic style unless it reveals systemic inconsistency;
+- local bugs unless they expose a repeated structural failure;
+- elegant refactors with no risk-reduction target;
+- generic best practices unsupported by this project's evidence.
 
 ## Workflow
 
-### 1. Establish Scope
+### 1. Establish scope
 
-Infer scope from the repository and user request before deep work:
+Infer scope from the repository and request:
 
-- Project stage: personal tool, prototype, MVP, beta, public product, internal tool, or SaaS.
-- Review depth: quick scan, focused audit, or deep due diligence.
-- Primary concern: maintainability, reliability, security/privacy, deployment, frontend quality, AI integration, data model, or cost.
-- Success condition: decision support, fix roadmap, implementation plan, or concrete remediation.
+- project stage: personal tool, prototype, MVP, beta, public product, internal tool, or SaaS;
+- review depth: Quick Scan, Focused Audit, or Deep Due Diligence;
+- primary concern: maintainability, reliability, security/privacy, deployment, frontend, AI integration, data model, cost, or broad health;
+- success condition: decision support, fix sequence, implementation plan, or later remediation.
 
-Ask at most one clarifying question only if the missing answer materially changes the audit path. Otherwise infer the likely stage and proceed.
+Ask at most one clarifying question only when the missing answer materially changes the audit path. Otherwise infer the likely stage and proceed.
 
-If the user does not specify depth, default to **Focused Audit**.
+Default to **Focused Audit**.
 
-Use this depth ladder:
+### 2. Choose depth
 
-- **Quick Scan**: Build a repo map, read README/instructions/manifests/entrypoints, identify test/build commands, and report 3-5 top risks.
-- **Focused Audit**: Do Quick Scan plus trace critical paths, inspect external boundaries, read key tests, and run the smallest relevant verification commands.
-- **Deep Due Diligence**: Do Focused Audit plus security/privacy, deployment, data persistence, test strategy, operability, and stage-ceiling analysis.
+**Quick Scan**
 
-### 2. Compress Execution When Appropriate
-
-If the repository is small, early-stage, unfamiliar to the user, or the user asks for a quick judgment, use the lightweight path:
-
-- Build a repo map.
-- Read instructions, README, manifests, entrypoints, and one critical path.
-- Derive one relevant verification command from project scripts or documentation.
+- Build a repository map.
+- Read project instructions, README, manifests, and entrypoints.
+- Identify test/build commands.
+- Trace one representative path when possible.
 - Report the top 3 risks and next 3 fixes.
 
-Do not expand into every audit surface unless evidence shows that surface is material. Keep the audit proportional to the decision the user needs to make.
+**Focused Audit**
 
-### 3. Build A Project Map First
+- Do the Quick Scan.
+- Trace 1–3 critical paths end to end.
+- Inspect external boundaries and key tests.
+- Run the smallest relevant verification commands.
+- Judge technical ceiling and compounding risk.
 
-Before giving judgments, inspect the repository structure and actual execution surface.
+**Deep Due Diligence**
 
-Locate this skill directory first. If `scripts/project_inventory.py` exists beside this `SKILL.md`, run it against the target repo:
+- Do the Focused Audit.
+- Expand into security/privacy, deployment, persistence/migrations, test strategy, operability, dependency exposure, recovery, and stage-readiness.
+- Verify high-risk claims across multiple surfaces when feasible.
+
+Keep audit depth proportional to the decision. A small repository does not need every surface padded with generic commentary.
+
+### 3. Build a project map first
+
+Locate this skill directory. If `scripts/project_inventory.py` exists, run it against the target repository:
 
 ```bash
 python3 "$SKILL_DIR/scripts/project_inventory.py" /path/to/repo
 ```
 
-If `$SKILL_DIR` is not already set by the runtime, infer it from the directory containing this `SKILL.md`.
+If `$SKILL_DIR` is unavailable, infer the directory containing this `SKILL.md`. If the helper script cannot run, build the inventory manually with repository inspection tools.
 
-If the helper script is unavailable, manually build the inventory with repository inspection commands such as `rg --files`, `find`, `ls`, `tree`, or language-specific manifest reads.
+Treat inventory output as a map, not final evidence.
 
-Use the output as a starting map, not as final evidence. Then inspect the relevant files directly.
+Identify:
 
-Always identify:
+- entrypoints and routing surfaces;
+- core domain/business logic;
+- state management and data flow;
+- external service/provider boundaries;
+- persistence, schema, migration, cache, and queue surfaces;
+- auth, authorization, secrets, and privacy boundaries when present;
+- test, build, lint, typecheck, and deployment commands;
+- runtime configuration and environment expectations.
 
-- Entry points and routing surfaces.
-- Core domain/business logic.
-- State management and data flow.
-- External service boundaries.
-- Persistence and schema/migration surfaces.
-- Authentication, authorization, secrets, and privacy surfaces when present.
-- Test, build, lint, typecheck, and deployment commands.
-- Runtime configuration and environment variable expectations.
+### 4. Read the highest-signal files
 
-### 4. Read The Highest-Signal Files
+Prefer this order unless project structure suggests otherwise:
 
-Read files in this order unless the project suggests a better path:
-
-1. Project instructions: `AGENTS.md`, `README*`, `CONTRIBUTING*`, `docs/*` if small.
-2. Manifests and config: `package.json`, `pyproject.toml`, `requirements*.txt`, `Cargo.toml`, `go.mod`, `Dockerfile`, CI files, deployment config.
-3. Entrypoints: app routers, server startup, CLI entry, worker entry, main scripts.
-4. Core modules: services, models, domain logic, data access, state stores, provider integrations.
+1. Project instructions (`AGENTS.md`, `CLAUDE.md`, equivalent host/project rules), README, contributing docs, small project docs.
+2. Manifests and configuration.
+3. Entrypoints.
+4. Core domain/service/data/provider modules.
 5. Tests and fixtures.
-6. Recent change surface when reviewing an active worktree or branch.
+6. Recent change surface when reviewing an active branch or worktree.
 
-Avoid reading generated files, dependency directories, lockfiles, large assets, build outputs, and private environment files unless specifically needed.
+Avoid generated files, dependency directories, build outputs, large assets, private environment files, and lockfiles unless they are directly relevant.
 
-### 5. Trace Critical Paths
+### 5. Trace critical paths
 
-For Focused Audit and Deep Due Diligence, trace 1-3 critical paths end to end before making architecture claims.
+Focused and deep audits should trace 1–3 paths that represent actual product value or operational risk: signup, ingestion, upload, checkout, AI generation, webhook processing, background jobs, deployment startup, or the main workflow.
 
-Choose paths that represent real product value or operational risk, such as signup, ingestion, upload, checkout, AI generation, webhook processing, background job execution, deployment startup, or the main user workflow.
+For each path, inspect:
 
-For each path, identify:
+- user/CLI/job/API entrypoint;
+- handler/router/controller;
+- validation and transformation;
+- domain/service boundary;
+- state/storage/cache/queue/migration boundary;
+- external calls and failure behavior;
+- loading, error, retry, timeout, cancellation, and partial-success handling;
+- test, fixture, replay, eval, or smoke surface.
 
-- User action, CLI command, scheduled job, webhook, or API entrypoint.
-- Router/controller/handler surface.
-- Data transformation and validation.
-- Domain/service boundary.
-- State, storage, cache, queue, or migration boundary.
-- External provider calls and failure behavior.
-- Loading, error, retry, timeout, cancellation, and partial-success handling.
-- Test, fixture, replay, eval, or smoke verification surface.
+Critical-path evidence should drive system-level findings. Broad scans are candidate generators, not conclusions.
 
-Use these traces as the main evidence for system-level findings. A broad file scan can reveal candidates, but critical-path evidence should drive the final judgment.
+### 6. Audit by surface
 
-### 6. Inspect By Audit Surface
+Use only the surfaces supported by evidence.
 
-Use these surfaces as the due diligence frame. Do not force every section into the final answer if evidence is thin.
+#### Architecture integrity
 
-**Architecture Integrity**
+- Are boundaries understandable and enforceable?
+- Is domain logic separated from UI, transport, persistence, and provider code?
+- Are there competing sources of truth?
+- Do abstractions carry real complexity or create it?
 
-- Are module boundaries clear and enforceable?
-- Is domain logic separated from UI, transport, storage, and provider code?
-- Is there a single understandable data flow?
-- Are abstractions carrying real complexity or hiding accidental complexity?
+#### Product-engineering fit
 
-**Product-Engineering Fit**
+- Does the technical shape match the current stage?
+- Is the project optimized for the next real milestone?
+- Are important choices reversible while product direction is still fluid?
 
-- Does the technical shape match the current product stage?
-- Is the project optimized for the next real milestone or for a demo that will become debt?
-- Is the implementation reversible if the product direction changes?
+#### Complexity budget
 
-**Complexity Budget**
+- Which dependencies, services, queues, caches, state layers, build tools, or agents are essential?
+- Which create maintenance or lock-in without enough benefit?
+- Are multiple mechanisms solving the same problem?
 
-- Which dependencies, services, state layers, queues, agents, caches, or build tools are essential?
-- Which ones create ongoing operational cost or lock-in without enough benefit?
-- Are there multiple ways to do the same thing?
+#### Reliability
 
-**Reliability Surface**
+- Are failure, empty, loading, timeout, retry, cancellation, and partial-success paths explicit?
+- Can critical async flows be observed and recovered?
+- Are failures surfaced or swallowed?
 
-- Are loading, error, empty, timeout, retry, cancellation, and partial-failure paths handled?
-- Are critical async flows observable and recoverable?
-- Are failures explicit or swallowed?
+#### Security and privacy
 
-**Security And Privacy**
+- Are secrets separated from code and logs?
+- Is sensitive data minimized across external boundaries?
+- Are auth, authorization, upload, webhook, file-processing, and administrative surfaces defensible?
+- Are dangerous actions constrained and reversible where possible?
 
-- Are secrets read from environment variables and kept out of logs?
-- Is user data minimized across providers and external services?
-- Are auth, authorization, upload, webhook, and file-processing boundaries defensible?
-- Are dangerous operations reversible or guarded?
-
-**Testability**
+#### Testability
 
 - Can core logic be tested without full end-to-end setup?
-- Do tests cover the highest-risk behavior?
+- Do tests cover high-risk behavior?
 - Are fixtures realistic enough to catch regressions?
-- Are there smoke tests for startup, main flows, or critical integrations?
+- Are startup/main-flow/integration smoke tests present where needed?
 
-**Operability**
+#### Operability
 
-- Can a new maintainer run, verify, debug, and deploy the project without guessing?
-- Are environment variables documented?
-- Are logs useful without leaking sensitive data?
-- Are migrations, background jobs, cron tasks, queues, or external accounts understandable?
+- Can a new maintainer run, verify, debug, and deploy without private knowledge?
+- Are environment expectations documented?
+- Are migrations, jobs, queues, scheduled tasks, and external accounts understandable?
+- Are logs useful without leaking data?
 
-**Frontend Quality**
+#### Frontend quality
 
-- Is the interface responsive across relevant breakpoints?
-- Are hover, focus, loading, empty, and error states present?
-- Are console errors absent?
-- Does the UI hierarchy support the workflow, or is it decorative structure?
+- Does the UI support the real workflow?
+- Are responsive, focus, loading, empty, error, and important interaction states handled?
+- Are console/runtime errors absent?
+- Does implementation respect the project's own design system and local UI-quality instructions?
 
-**AI Integration**
+Use project-specific design guidance when it exists. Generic UI heuristics are a fallback, not a replacement for local product language.
 
-- Are prompts, provider calls, response parsing, retries, and cost limits explicit?
+#### AI integration
+
+- Are prompts, tool permissions, provider calls, response parsing, retries, limits, and cost boundaries explicit?
 - Is model output treated as untrusted input where appropriate?
-- Is sensitive data minimized before provider calls?
-- Is provider-specific logic isolated enough to replace or test?
-- Are tool permissions and irreversible actions constrained?
-- Are prompt-injection and untrusted-input boundaries explicit?
-- Are model outputs validated with schemas or strict parsers before action?
-- Are parse failures, refusal paths, rate limits, timeouts, retries, and cost runaway controlled?
-- Are provider fallback and degradation behavior intentional?
-- Are golden traces, evals, replay fixtures, or regression examples present for critical AI behavior?
-- Is user data retention documented and minimized before provider calls?
+- Are prompt-injection and untrusted-context boundaries explicit?
+- Are outputs schema-validated or strictly parsed before consequential action?
+- Are refusal, parse failure, timeout, rate limit, fallback, and degradation paths intentional?
+- Are replay fixtures, evals, golden traces, or regression cases present for critical AI behavior?
+- Is user data minimized and retention understood before provider calls?
 
-### 7. Verify Claims
+### 7. Verify claims
 
-Run the smallest relevant checks available. Prefer existing scripts over inventing new checks.
+Read project manifests and documentation before choosing commands. Prefer existing scripts over invented checks.
 
-Derive verification commands from project manifests and documentation first. For JavaScript/TypeScript, inspect `package.json` scripts before running commands. For Python, inspect `pyproject.toml`, `pytest.ini`, `tox.ini`, `noxfile.py`, `requirements*.txt`, and README instructions. Use the examples below only when the repo exposes matching scripts or clear conventions.
-
-For JavaScript/TypeScript projects, consider:
+Examples only when the repository exposes matching conventions:
 
 ```bash
+# JavaScript / TypeScript
 npm run lint
 npm run typecheck
 npm test
 npm run build
-```
 
-For Python projects, consider:
-
-```bash
+# Python
 python3 -m pytest
 python3 -m compileall .
-python3 path/to/smoke_test.py
 ```
 
-For frontend projects, use browser verification when the task concerns UI quality or runtime behavior. Check at least one desktop and one mobile viewport when making frontend claims.
+For frontend/runtime claims, use browser verification when available. Check at least one desktop and one mobile viewport before making responsiveness claims.
 
-If a command is too expensive, missing, or blocked by setup, report that as a finding or limitation. Do not treat unrun checks as passed.
+If a command is expensive, destructive, missing, or blocked by setup, do not force it. Record the limitation.
 
-### 8. Classify Technical State
+### 8. Classify technical state
 
-Give one concise project-level judgment:
+Choose one project-level state:
 
-- **Healthy**: coherent architecture, clear verification, low compounding risk.
-- **Usable With Gaps**: product can continue, but specific areas need tightening.
-- **Fragile**: works now, but defects or changes are likely to compound.
-- **Structurally Risky**: architecture or operational shape blocks safe growth.
-- **Not Ready To Build On**: major unknowns or defects make further feature work irresponsible.
+- **Healthy** — coherent architecture, meaningful verification, low compounding risk.
+- **Usable With Gaps** — safe to continue with specific areas requiring tightening.
+- **Fragile** — works, but defects or changes are likely to compound.
+- **Structurally Risky** — architecture or operational shape blocks safe growth.
+- **Not Ready To Build On** — major unknowns or defects make more feature work irresponsible.
 
-Also state the current technical ceiling: personal tool, prototype, MVP, beta, public product, or SaaS-ready. Explain what prevents the next stage.
+Also state the current technical ceiling: personal tool, prototype, MVP, beta, public product, or SaaS-ready. Name the evidence-backed constraint preventing the next stage.
 
-### 9. Produce The Report
+### 9. Produce the report
 
-Use the compact report for Quick Scan, small projects, early-stage repos, or when the user needs a fast decision:
+Use a compact report for Quick Scan and small repositories:
 
 ```text
 Technical Judgment
-One direct paragraph with state, technical ceiling, and biggest constraint.
-
 Top 3 Risks
-Each risk includes evidence, impact, and recommended fix.
-
 Next 3 Fixes
-Ordered actions with verification gates.
-
 Verified / Not Verified
-Commands run, results, blocked checks, and unknowns.
 ```
 
-Use the full report for Focused Audit or Deep Due Diligence when the evidence justifies the length:
+Use the full report when Focused or Deep evidence justifies it:
 
 ```text
 Technical Judgment
-One direct paragraph with the overall state, technical ceiling, and biggest constraint.
-
 Architecture Read
-What the system appears to be, based on the actual files and runtime surface.
-
 Top Findings
-P0/P1/P2 findings ordered by severity. Each finding includes:
-- Problem
-- Evidence
-- Impact
-- Recommended fix
-- Verification gate
-
 What Not To Do
-Specific tempting fixes that would add debt or obscure the real issue.
-
 Recommended Fix Sequence
-3-7 ordered steps. Each step must be small enough to verify and should reduce risk before adding capability.
-
 Verification Plan
-Commands or manual checks that prove the remediation worked.
-
 Residual Risk
-Unknowns, skipped surfaces, blocked checks, and decisions that need the owner.
 ```
 
-Every report section must help the user make a decision. Omit or merge sections with thin evidence instead of filling them with generic commentary.
+For each top finding include:
+
+- severity;
+- problem;
+- evidence;
+- impact;
+- recommended fix;
+- verification gate.
+
+Omit thin sections instead of filling them with generic advice.
 
 ## Severity
 
-Use severity for system risk, not personal preference.
+- **P0** — data loss, security/privacy exposure, broken deploy/startup, or architecture that blocks the stated goal.
+- **P1** — high compounding risk, brittle critical path, missing verification for important behavior, unclear ownership of core logic.
+- **P2** — maintainability, operability, or UX issues worth fixing without blocking near-term progress.
+- **P3** — minor cleanup; include only when useful.
 
-- **P0**: Data loss, security/privacy exposure, broken deploy/startup, or architecture that blocks the stated goal.
-- **P1**: High compounding risk, brittle critical path, missing verification for important behavior, unclear ownership of core logic.
-- **P2**: Maintainability, operability, or UX quality issues that should be fixed but do not block near-term progress.
-- **P3**: Minor cleanup. Include only when useful, and keep it out of the top findings unless the user asked for exhaustive review.
-
-## Fix Sequence Rules
-
-Recommend the smallest sequence that changes the project's trajectory.
+## Fix-sequence rules
 
 - Put risk reduction before feature work.
-- Put boundary clarification before broad refactors.
-- Put tests or smoke checks around critical paths before changing them.
-- Put provider, storage, and deployment changes behind explicit interfaces when possible.
-- Avoid migrations, new dependencies, service splits, or rewrites unless the evidence shows they are necessary.
-- For each step, state how to verify and how to roll back or contain the change.
+- Clarify boundaries before broad refactors.
+- Put tests/smoke checks around critical paths before changing them.
+- Put provider, storage, and deployment changes behind explicit interfaces where useful.
+- Avoid migrations, new dependencies, service splits, or rewrites unless evidence requires them.
+- Give each step a verification gate and, where relevant, a rollback/containment path.
 
-## Anti-Patterns
+## Anti-patterns
 
-Call out these patterns when present:
+Call out when evidenced:
 
-- UI, transport, persistence, and business rules mixed in the same files.
-- Prompts or provider response parsing hidden inside UI or unrelated utilities.
-- Multiple competing state sources.
-- New features added on top of untested critical paths.
-- Broad refactors without a failing test, metric, or explicit risk target.
-- Environment setup that relies on undocumented private knowledge.
-- Mock data or placeholder flows presented as production behavior.
-- Logging or analytics that could leak sensitive user data.
-- Dependency additions that replace a small local need with long-term maintenance burden.
+- UI, transport, persistence, and business rules mixed together;
+- prompts/provider parsing hidden in unrelated UI/utilities;
+- multiple competing state sources;
+- feature growth on untested critical paths;
+- broad refactors with no failing test, metric, or risk target;
+- setup that depends on undocumented private knowledge;
+- placeholder/mock flows presented as production behavior;
+- logs/analytics leaking sensitive data;
+- dependencies that replace a small local need with long-term maintenance burden.
 
-## Final Answer Requirements
+## Remediation handoff
 
-When using this skill, finish with:
+When the user explicitly asks to implement fixes after the audit:
 
-- What was reviewed.
-- What was verified, including exact commands and results.
-- What was not verified.
-- The recommended next action.
+1. preserve the audit evidence and risk order;
+2. choose the smallest fix that reduces the highest material risk;
+3. check repository status and local instructions before editing;
+4. define the verification gate before implementation;
+5. keep unrelated cleanup out of scope;
+6. report exact files changed, verification run, result, and remaining risk.
 
-Never claim the project is healthy, broken, scalable, secure, or production-ready without evidence.
+If Runtime Guard is installed in Claude Code, switch to `remediation` mode only after remediation is explicitly requested.
+
+## Final answer requirements
+
+Finish every audit with:
+
+- what was reviewed;
+- what was verified, including exact commands/results;
+- what was not verified;
+- the recommended next action.
+
+Never call a project healthy, broken, scalable, secure, production-ready, or SaaS-ready without evidence.

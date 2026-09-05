@@ -1,117 +1,107 @@
-# Runtime Guard (optional, Claude Code only)
+# Runtime Guard（可选，仅 Claude Code）
 
-Runtime Guard is an optional companion to the Architecture Due Diligence
-skill. The skill itself works in any agent (Claude Code, Cursor, Windsurf,
-Codex) because it is just instructions. Runtime Guard adds an execution-time
-layer that only Claude Code can run, because it relies on Claude Code's
-hooks system.
+中文 · [English](./runtime-guard.en.md)
 
-## What it is
+Runtime Guard 是 Architecture Due Diligence 的可选运行时补充。Skill 本体负责告诉 Agent“审计默认只读”；Runtime Guard 通过 Claude Code hooks 再加一层执行约束。
 
-A small, dependency-free Python script (`scripts/runtime_guard.py`) wired
-into four Claude Code hooks:
+它依赖 Claude Code 的 hooks 与权限机制，因此不属于跨宿主 Skill 的核心能力。
 
-- `UserPromptSubmit` — reminds you (and the agent) to set a mode explicitly when a prompt looks like an audit or remediation request. It never blocks or changes your prompt.
-- `PreToolUse` — checks the active mode before a tool runs.
-- `PostToolUse` — records what changed and adds short reminders for high-risk areas (auth, dependencies, deployment, migrations).
-- `Stop` — before the agent ends its turn, checks that changes were verified or that the final answer says clearly what was and wasn't verified.
+## 它做什么
 
-## How it differs from the skill itself
+`scripts/runtime_guard.py` 是一个只依赖 Python 标准库的脚本，围绕四类 hook 事件工作：
 
-The skill's "Read-Only Default" rule (in `SKILL.md`) is a written instruction
-the agent is expected to follow. Runtime Guard makes one part of that
-instruction enforced rather than self-reported: while the guard is in
-`audit_read_only` mode, Claude Code's own permission system — not the
-agent's judgment — blocks file-writing tools.
+- `UserPromptSubmit`：发现像 audit / remediation 的请求时，只提醒显式设置 mode，不自动判断；
+- `PreToolUse`：工具运行前读取当前 mode，并决定允许、询问或阻止；
+- `PostToolUse`：记录变更与验证活动；
+- `Stop`：存在修改但缺少验证时，最多阻止结束一次，要求运行验证或明确报告未验证项。
 
-## Mode is explicit, not guessed
+Claude Code 的 hook schema 会迭代。脚本对若干历史字段名做了兼容处理，安装时仍应对照当前官方文档检查 payload 与 response 字段。
 
-Earlier drafts of this idea tried to infer "are we auditing right now" from
-the wording of every prompt. That was rejected: a keyword match on any
-message (e.g. the word "review") would lock the whole project read-only,
-even for unrelated work. Instead:
+## Mode 必须显式设置
 
 ```bash
-python3 scripts/runtime_guard.py set-mode audit_read_only   # before an audit
-python3 scripts/runtime_guard.py set-mode remediation        # only after you explicitly ask for fixes
-python3 scripts/runtime_guard.py set-mode feature_build       # normal work -- guard stays out of the way
-python3 scripts/runtime_guard.py status                       # see current mode and recorded activity
-python3 scripts/runtime_guard.py reset                        # clear state back to "unknown"
+python3 scripts/runtime_guard.py set-mode audit_read_only
+python3 scripts/runtime_guard.py set-mode remediation
+python3 scripts/runtime_guard.py set-mode feature_build
+python3 scripts/runtime_guard.py status
+python3 scripts/runtime_guard.py reset
 ```
 
-If mode is never set, it stays `unknown` and the guard does nothing. The
-`UserPromptSubmit` hook only ever sends a reminder to set the mode — it
-cannot set it for you and cannot block your message.
+未设置时 mode 为 `unknown`，guard 不主动介入。
 
-## What it blocks in `audit_read_only` mode
+prompt 文本只用于提醒，不用于决定 mode。这样可以避免一句普通的 “review this” 把整个项目错误锁成只读。
 
-- `Write`, `Edit`, `MultiEdit`, `NotebookEdit` — denied outright. This is a
-  hard rule, not a pattern match, so it cannot be bypassed by phrasing.
-- Bash commands matching a short denylist (`npm install`, `pip install`,
-  `rm -rf`, `git push`, `git reset --hard`, migration commands, etc.).
-  This list is a speed bump, not a sandbox — see Limitations.
-- Everything else (reading files, `git status`, `git diff`, running tests,
-  lint, build) is allowed by default.
+## `audit_read_only`
 
-## What it warns about in `remediation` mode
+这一模式用于真正的审计阶段。
 
-Edits are allowed, but two categories get escalated to an explicit
-confirmation prompt for the human in the loop, rather than the agent
-deciding alone:
+主要行为：
 
-- Editing a high-risk path: `package.json`, lockfiles, `.env*`, Dockerfiles,
-  deploy config, CI workflows, migrations/schema, or anything under an
-  `auth/` directory.
-- Running a high-risk Bash command: dependency installs, `git push`,
-  `git reset --hard`, migrations.
+- `Write`、`Edit`、`MultiEdit`、`NotebookEdit` 等主要写入工具直接拒绝；
+- 对依赖安装、危险 Git 操作、migration 等一组 Bash 字符串做 denylist 检查；
+- Read、搜索、`git status`、`git diff`、测试、lint、build 等默认允许。
 
-## Before the agent finishes (`Stop`)
+工具名拦截比字符串匹配更可靠；Bash denylist 只是 speed bump。
 
-If files changed during the session and no verification command was
-recorded, and the final answer doesn't clearly state what was verified, the
-guard blocks completion once and asks for a verification command or an
-explicit "what was/wasn't verified" statement. It will not block a second
-time in the same mode-session — this is intentional, so a misclassified
-case can never hang the session indefinitely. Outside `audit_read_only` /
-`remediation` mode, the Stop hook does nothing.
+## `remediation`
 
-## How to install it
+用户明确要求实现修复后再切换到这一模式。
 
-1. Copy `examples/claude-code/settings.example.json`'s `hooks` block into
-   your project's `.claude/settings.json` (merge, don't overwrite).
-2. Adjust the `python3 scripts/runtime_guard.py ...` paths if this skill
-   lives somewhere other than your project root.
-3. Tell the agent (or have `SKILL.md` remind it) to run `set-mode` when it
-   starts an audit or starts remediation.
+编辑可以进行，同时两类动作会要求人工确认：
 
-Claude Code's hook payload and response field names have changed across
-versions. The script extracts fields defensively and degrades to "do
-nothing" if a field it expects is missing — but if a hook doesn't seem to
-fire or block as described, check your installed Claude Code version's hook
-documentation against the field names in `scripts/runtime_guard.py`.
+- 高风险路径，例如 dependency manifest / lockfile、`.env*`、Docker / deploy / CI、schema / migrations、auth 相关文件；
+- 高风险 Bash，例如依赖安装、`git push`、`git reset --hard`、migration。
 
-## How to disable it
+## `feature_build`
 
-Remove the `hooks` entries that call `runtime_guard.py` from
-`.claude/settings.json`, or run `python3 scripts/runtime_guard.py reset` to
-drop the mode back to `unknown` (in which the guard is a no-op even if the
-hooks stay wired).
+普通开发使用。Runtime Guard 不把 architecture-audit 规则扩张到无关任务。
 
-## Limitations — read this before trusting it
+## Stop 检查
 
-- **Not a sandbox.** Bash pattern matching is a substring check. An agent
-  (or a confused one) can phrase around it — a script that installs a
-  package without the literal string `npm install`, for example. The hard
-  guarantee is only the tool-name block on `Write`/`Edit`/`MultiEdit`/
-  `NotebookEdit` in audit mode.
-- **Does not prove code quality.** Passing the Stop check means a
-  verification command ran or was reported — it does not mean the code is
-  correct. Final quality still requires real audit evidence and human
-  judgment.
-- **Single state file per repo.** Concurrent sessions/worktrees auditing the
-  same repo at the same time will read/write the same state file and can
-  race each other. Fine for one active session at a time; not designed for
-  more.
-- **Mode can be forgotten.** If nobody runs `set-mode`, the guard does
-  nothing. It is a backstop for the common failure mode (agent edits while
-  "just auditing"), not a guarantee that auditing happened correctly.
+如果本轮发生文件修改，却没有记录到验证命令，也没有在最终报告中清楚说明 verified / not verified，Stop hook 会阻止结束一次。
+
+同一 mode-session 只阻止一次，避免误判导致会话卡死。
+
+这只能证明“验证动作被运行或被报告”，不能证明代码正确。
+
+## 安装
+
+1. 查看 `examples/claude-code/settings.example.json`。
+2. 把其中的 `hooks` 配置合并进项目 `.claude/settings.json`，不要覆盖已有设置。
+3. 根据 Skill 实际安装位置调整 `runtime_guard.py` 路径。
+4. 在 audit / remediation 开始时显式运行对应的 `set-mode`。
+5. 用当前 Claude Code 官方 hooks 文档核对事件名、matcher、输入字段与 hook 输出格式。
+
+Anthropic 当前仍支持通过 `PreToolUse` hook 在权限系统运行前参与工具权限判断，但具体字段与 hook 能力应以安装版本的官方文档为准。
+
+## 禁用
+
+从 `.claude/settings.json` 删除相关 hooks，或执行：
+
+```bash
+python3 scripts/runtime_guard.py reset
+```
+
+`unknown` mode 下，即使 hook 仍然配置，脚本也按 no-op 处理。
+
+## 限制
+
+### 它不是 sandbox
+
+Bash 检查是 substring matching，可以被不同命令形式绕过。Runtime Guard 的目标是减少 Agent 在“只读审计”里顺手修改项目的常见失误，不提供完整安全隔离。
+
+### 它不能证明审计质量
+
+通过 Stop gate 只说明验证动作存在。架构判断仍需要真实文件、runtime、测试与人工判断支持。
+
+### 一个 repo 共用一个 state file
+
+默认 state 位于项目的 `.architecture-due-diligence/`。多个 session / worktree 同时操作同一 repo 时可能发生竞争；当前设计适合单一活跃会话。
+
+### Mode 可能忘记设置
+
+`unknown` 时 guard 不工作。它是 opt-in backstop，不是自动安全层。
+
+### Hooks 是宿主接口
+
+Claude Code 持续迭代。出现 hook 没触发、权限判断无效或字段不兼容时，先对照当前安装版本的 hooks 文档，再判断是 Runtime Guard 逻辑问题还是宿主 API 已变化。
